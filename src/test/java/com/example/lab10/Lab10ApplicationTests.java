@@ -50,27 +50,61 @@ class Lab10ApplicationTests {
                 .verifyComplete(); // Mono.empty() → onComplete ทันที
     }
 
+    @Autowired
+    private com.example.lab10.service.ProductService service;
+
     // ══════════════════════════════════════════════════════
     // ❌ TODO: เพิ่ม test ด้านล่างนี้
     // ══════════════════════════════════════════════════════
 
     @Test
     void testFindAll() {
-        // TODO: ทดสอบว่า findAll() คืน Flux ที่มี element
-        // Hint: StepVerifier.create(repository.findAll())
-        //         .expectNextCount(3)   ← มี 3 รายการ
-        //         .verifyComplete()
+        StepVerifier.create(repository.findAll())
+                .expectNextCount(3)
+                .verifyComplete();
     }
 
     @Test
     void testSave() {
-        // TODO: ทดสอบ save() บันทึกแล้วคืน Product
-        // Hint: สร้าง Product ใหม่ → save → expectNext → verifyComplete
+        Product newProduct = new Product("4", "iPad Air M2", "Electronics", "Apple", 10, 23900.0, "MEMBER");
+        StepVerifier.create(repository.save(newProduct))
+                .expectNextMatches(p -> p.getId().equals("4") && p.getName().equals("iPad Air M2"))
+                .verifyComplete();
     }
 
     @Test
     void testFindByCategory() {
-        // TODO: ทดสอบ findByCategory("Electronics")
-        // Hint: expectNextCount(3) เพราะมี 3 รายการใน Electronics
+        StepVerifier.create(repository.findByCategory("Electronics"))
+                .thenConsumeWhile(p -> "Electronics".equalsIgnoreCase(p.getCategory()))
+                .verifyComplete();
+    }
+
+    @Test
+    void testServiceGetById_notFound() {
+        StepVerifier.create(service.getById("9999"))
+                .expectErrorMatches(throwable -> throwable instanceof RuntimeException
+                        && throwable.getMessage().contains("Product not found: 9999"))
+                .verify();
+    }
+
+    @Test
+    void testServiceGetDiscountedPrice() {
+        // Product 1: iPhone 15 Pro, price 39900.0, discountType "MEMBER" (10% off -> 35910.0)
+        StepVerifier.create(service.getDiscountedPrice("1"))
+                .expectNext(35910.0)
+                .verifyComplete();
+    }
+
+    @Test
+    void testReactiveOperatorChaining() {
+        // ทดสอบการ chain operators: map -> filter -> defaultIfEmpty
+        StepVerifier.create(
+                service.getById("2")
+                        .map(Product::getPrice)
+                        .filter(price -> price < 10000.0)
+                        .defaultIfEmpty(0.0)
+        )
+        .expectNext(0.0)
+        .verifyComplete();
     }
 }
